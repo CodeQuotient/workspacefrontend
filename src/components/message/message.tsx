@@ -150,7 +150,6 @@ export const Message = React.forwardRef<HTMLDivElement, MessageProps>((props, fo
 	const [notificationChangeLoader, setNotificationChangeLoader] = useState(false);
 	const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 	const [userStatus, setUserStatus] = useState<string>('Hey! I am using workspace.');
-
 	// const [mentorsNotifyVisible, setMentorsNotifyVisible] = useState(false);
 	// const [mentorsNotifyLoader, setMentorsNotifyLoader] = useState(false);
 	const [likeMessageLoading, setLikeMessageLoading] = useState(false);
@@ -325,13 +324,9 @@ export const Message = React.forwardRef<HTMLDivElement, MessageProps>((props, fo
 	const showAnyUserProfile = useCallback(() => {
 		setIsProfileModalVisible(!isProfileModalVisible);
 	}, [isProfileModalVisible]);
-
 	return (
 		<div className={styles.messageWrapper} ref={forwardedRef}>
 			<div className={styles.avatarContainer}>
-				{channelUsers[message.created_by?._id]?.online ? (
-					<div className={styles.onlineUserIcon} />
-				) : ''}
 				<UserAvatar
 					id={message.created_by?._id ?? ''}
 					src={channelUsers[message.created_by?._id]?.profilePic ? channelUsers[message.created_by?._id]?.profilePic : ''}
@@ -339,6 +334,9 @@ export const Message = React.forwardRef<HTMLDivElement, MessageProps>((props, fo
 					size={isSidebarEmbed ? 35 : 45}
 					showAnyUserProfile={showAnyUserProfile}
 				/>
+				{message.created_by?.lastseen_at === '-1' ? (
+					<div className={styles.onlineUserIcon} />
+				) : ''}
 			</div>
 			<div className={styles.message}>
 				<div className={`${styles.messageDetails} selectable`}>
@@ -693,6 +691,8 @@ export const Message = React.forwardRef<HTMLDivElement, MessageProps>((props, fo
 								&& message.created_by?._id !== sessionData?.userId}
 							handleDMUser={handleDMUser}
 							userStatus={channelUsers[message?.created_by?._id]?.status || userStatus}
+							showLastseen
+							lastseen={message.created_by?.lastseen_at}
 						/>
 					</Modal>
 					<span
@@ -852,6 +852,8 @@ export const Message = React.forwardRef<HTMLDivElement, MessageProps>((props, fo
 													channelUsers={channelUsers}
 													currentChannelPermission={currentChannelPermission}
 													isSidebarEmbed={isSidebarEmbed}
+													currentChannelType={currentChannelType}
+													handleDMUser={handleDMUser}
 												/>
 											))
 										}

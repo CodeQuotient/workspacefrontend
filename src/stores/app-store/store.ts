@@ -159,6 +159,12 @@ export interface AppState {
 	getProfileUploadUrl: () => string,
 
 	setProfile: (data: { [key: string]: string }) => Promise<void>
+
+	updateLastSeen: (data: string) => Promise<void>
+
+	updateOnline: (data: string) => Promise<void>
+
+	changePermissions: (data: string) => Promise<void>
 }
 
 const initialState: AppState = {
@@ -237,6 +243,9 @@ const initialState: AppState = {
 	getProfileUploadUrl: () => '',
 	setProfile: async () => {},
 	deleteChannel: async () => {},
+	updateLastSeen: async () => {},
+	updateOnline: async () => {},
+	changePermissions: async () => {},
 };
 
 export function createAppStore(cqWorkspacesClient: CQWorkspacesClient): UseStore<AppState> {
@@ -352,15 +361,6 @@ export function createAppStore(cqWorkspacesClient: CQWorkspacesClient): UseStore
 			}
 
 			const prevChId = currentChannel?.id;
-
-			// const channelUsersData: any = {};
-			// channel.user_ids.forEach((userId: string) => {
-			// 	channelUsersData[userId] = workspaceUsersData[userId];
-			// });
-
-			// channel.removed_user_ids?.forEach((userId: string) => {
-			// 	channelUsersData[userId] = workspaceUsersData[userId];
-			// });
 
 			const responseData = await cqWorkspacesClient.joinChannel(channel.id, currentWorkspace.id);
 			let likedMessageIds = [];
@@ -787,7 +787,6 @@ export function createAppStore(cqWorkspacesClient: CQWorkspacesClient): UseStore
 		});
 
 		cqWorkspacesClient.on('updateNotifyUsersListOfMessage-received', async (data: any) => {
-			// console.log(data);
 			set((state) => {
 				const message = state.messages?.find((msg: any) => msg.id === data.messageId);
 				if (message) {
@@ -985,6 +984,68 @@ export function createAppStore(cqWorkspacesClient: CQWorkspacesClient): UseStore
 			});
 		});
 
+		cqWorkspacesClient.on('userleft-received', async (data: any) => {
+			const { messages } = get();
+			const updatedMessages = messages?.map((mesg: any) => {
+				if (mesg?.created_by?._id === data) {
+					const msg = {
+						...mesg,
+                        created_by: {
+                            ...mesg.created_by,
+                            lastseen_at: Date.now(),
+                        },
+					};
+					return msg;
+				}
+				return mesg;
+			});
+            set((state) => ({
+                ...state,
+                messages: updatedMessages,
+            }));
+		});
+
+		cqWorkspacesClient.on('userjoin-recieved', async (data: any) => {
+			const { messages } = get();
+			const updatedMessages = messages?.map((mesg: any) => {
+				if (mesg?.created_by?._id === data) {
+					const msg = {
+						...mesg,
+                        created_by: {
+                            ...mesg.created_by,
+                            lastseen_at: '-1',
+                        },
+					};
+					return msg;
+				}
+				return mesg;
+			});
+            set((state) => ({
+                ...state,
+                messages: updatedMessages,
+            }));
+		});
+
+		cqWorkspacesClient.on('changePermission-received', async (data:any) => {
+			console.log('gdhfgjkh', data);
+			set((state: any) => {
+				const updatedChannels = state.channels?.map((channel: any) => {
+					if (channel.id === data.channelId) {
+						return { ...channel, write_permission_type: parseInt(data.permissionValue, 10) };
+					}
+					return channel;
+				});
+				// eslint-disable-next-line no-param-reassign
+				state.channels = updatedChannels;
+				if (state.currentChannel.id === data.channelId) {
+					// eslint-disable-next-line no-param-reassign
+					state.currentChannel.write_permission_type = parseInt(data.permissionValue, 10);
+				}
+				console.log(state.channels);
+				// return { ...state, channels: updatedChannels };
+            });
+		});
+
 		cqWorkspacesClient.on('socket-connected', async () => {
 			logger.log('socket connected');
 
@@ -1010,7 +1071,6 @@ export function createAppStore(cqWorkspacesClient: CQWorkspacesClient): UseStore
 				connected: false,
 			}, false, AppAction.SocketDisconnected);
 		});
-
 		return {
 			...initialState,
 
